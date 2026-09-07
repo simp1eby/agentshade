@@ -201,7 +201,39 @@ func runStatusItemIconChecks() throws {
     let icon = StatusItemIcon.make()
     try expect(icon.size == NSSize(width: 18, height: 18), "The status item avatar must fit the menu bar")
     try expect(icon.isTemplate, "The simple robot icon must adapt to light and dark menu bars")
-    try expect(icon.tiffRepresentation != nil, "The status item robot must contain rendered pixels")
+
+    guard
+        let bitmap = NSBitmapImageRep(
+            bitmapDataPlanes: nil,
+            pixelsWide: 18,
+            pixelsHigh: 18,
+            bitsPerSample: 8,
+            samplesPerPixel: 4,
+            hasAlpha: true,
+            isPlanar: false,
+            colorSpaceName: .deviceRGB,
+            bytesPerRow: 0,
+            bitsPerPixel: 0
+        ),
+        let context = NSGraphicsContext(bitmapImageRep: bitmap)
+    else {
+        throw CheckFailure.failed("The status item icon must render to a bitmap")
+    }
+
+    NSGraphicsContext.saveGraphicsState()
+    NSGraphicsContext.current = context
+    NSColor.clear.setFill()
+    NSRect(x: 0, y: 0, width: 18, height: 18).fill()
+    icon.draw(in: NSRect(x: 0, y: 0, width: 18, height: 18))
+    context.flushGraphics()
+    NSGraphicsContext.restoreGraphicsState()
+
+    let alphaAt: (Int, Int) -> CGFloat = { x, y in
+        bitmap.colorAt(x: x, y: y)?.alphaComponent ?? 0
+    }
+    try expect(alphaAt(9, 9) > 0.5, "The AgentShade visor must remain visible at menu-bar size")
+    try expect(alphaAt(9, 11) < 0.1, "The outlined mask must preserve interior negative space")
+    try expect(alphaAt(9, 1) > 0.5, "The agent signal dot must remain visible at menu-bar size")
 }
 
 do {

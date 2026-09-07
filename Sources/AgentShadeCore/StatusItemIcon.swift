@@ -6,19 +6,30 @@ public enum StatusItemIcon {
     public static func make() -> NSImage {
         let image = NSImage(size: size, flipped: false) { _ in
             NSColor.black.setFill()
+            NSBezierPath(ovalIn: NSRect(x: 7.8, y: 15, width: 2.4, height: 2.4)).fill()
 
-            NSBezierPath(ovalIn: NSRect(x: 7.5, y: 15.2, width: 3, height: 2.8)).fill()
-            NSBezierPath(roundedRect: NSRect(x: 8.25, y: 13.5, width: 1.5, height: 2.5), xRadius: 0.75, yRadius: 0.75).fill()
-            NSBezierPath(roundedRect: NSRect(x: 0.75, y: 6, width: 2, height: 6), xRadius: 1, yRadius: 1).fill()
-            NSBezierPath(roundedRect: NSRect(x: 15.25, y: 6, width: 2, height: 6), xRadius: 1, yRadius: 1).fill()
-            NSBezierPath(roundedRect: NSRect(x: 2, y: 3, width: 14, height: 11.5), xRadius: 3.25, yRadius: 3.25).fill()
+            NSColor.black.setStroke()
+            let signalStem = NSBezierPath()
+            signalStem.move(to: NSPoint(x: 9, y: 15.2))
+            signalStem.line(to: NSPoint(x: 9, y: 14))
+            signalStem.lineWidth = 1.4
+            signalStem.lineCapStyle = .round
+            signalStem.stroke()
 
-            guard let context = NSGraphicsContext.current else { return true }
-            context.saveGraphicsState()
-            context.compositingOperation = .clear
-            NSBezierPath(ovalIn: NSRect(x: 4.5, y: 7.25, width: 3.25, height: 3.5)).fill()
-            NSBezierPath(ovalIn: NSRect(x: 10.25, y: 7.25, width: 3.25, height: 3.5)).fill()
-            context.restoreGraphicsState()
+            let mask = NSBezierPath(
+                roundedRect: NSRect(x: 2.25, y: 3.25, width: 13.5, height: 10.75),
+                xRadius: 4.25,
+                yRadius: 4.25
+            )
+            mask.lineWidth = 1.6
+            mask.lineJoinStyle = .round
+            mask.stroke()
+
+            NSBezierPath(
+                roundedRect: NSRect(x: 4, y: 7.75, width: 10, height: 3.5),
+                xRadius: 1.75,
+                yRadius: 1.75
+            ).fill()
             return true
         }
         image.isTemplate = true
