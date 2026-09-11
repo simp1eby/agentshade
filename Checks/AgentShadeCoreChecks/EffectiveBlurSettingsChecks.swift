@@ -84,6 +84,23 @@ func runEffectiveBlurSettingsChecks() throws {
     try control("settingsTab.lid", NSButton.self).performClick(nil)
     let radius = try control("automaticBlur", NSSlider.self)
     try expect(radius.isHiddenOrHasHiddenAncestor, "Permission-free lid artwork must not expose an ineffective radius")
+    guard let preview = views.compactMap({ $0 as? FrostedPreviewView }).first(where: { !$0.isHiddenOrHasHiddenAncestor }),
+          let imageView = effectiveBlurChildren(preview).compactMap({ $0 as? FrostedImageView }).first else {
+        throw CheckFailure.failed("Missing lid snapshot preview")
+    }
+    var renderedProgress = 0.0
+    let originalProgress = imageView.onProgress
+    imageView.onProgress = { progress in
+        originalProgress?(progress)
+        renderedProgress = progress
+    }
+    func waitFor(_ description: String, until ready: () -> Bool) throws {
+        let deadline = Date(timeIntervalSinceNow: 3)
+        while !ready(), Date() < deadline {
+            RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.01))
+        }
+        try expect(ready(), description)
+    }
     permissions.isGranted = true
     NotificationCenter.default.post(name: NSApplication.didBecomeActiveNotification, object: NSApp)
     try expect(!radius.isHiddenOrHasHiddenAncestor && radius.isEnabled, "Authorized lid snapshots must expose the real blur radius")
@@ -95,11 +112,20 @@ func runEffectiveBlurSettingsChecks() throws {
     previewAngle.sendAction(previewAngle.action, to: previewAngle.target)
     try expect(previewAngle.doubleValue == 40, "Deepest preview must use the actual 40-degree endpoint")
     content.layoutSubtreeIfNeeded()
-    let imageView = views.compactMap { $0 as? FrostedImageView }.first { !$0.isHiddenOrHasHiddenAncestor }!
     func frame(radius value: Double) throws -> CGImage {
         radius.doubleValue = value
         radius.sendAction(radius.action, to: radius.target)
-        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.4))
+        try waitFor("Deepest preview animation must reach its endpoint") { renderedProgress == 1 }
+        // Drain the current render and its possible latest-generation replacement.
+        // A preview remains hidden until its first asynchronous frame succeeds.
+        for _ in 0..<2 {
+            var drained = false
+            FrostedImageRenderer.renderQueue.async {
+                DispatchQueue.main.async { drained = true }
+            }
+            try waitFor("Deepest preview render must finish") { drained }
+        }
+        try expect(!imageView.isHiddenOrHasHiddenAncestor, "The enhanced preview must display rendered pixels, not fallback artwork")
         guard let contents = imageView.layer?.contents else { throw CheckFailure.failed("Deepest example must render real pixels") }
         return contents as! CGImage
     }

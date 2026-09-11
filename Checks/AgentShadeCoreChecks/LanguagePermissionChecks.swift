@@ -76,7 +76,7 @@ func runLanguagePermissionSettingsChecks() throws {
     lidTab.performClick(nil)
     let simulatedAngle = try control("previewAngle", PreviewAngleSlider.self)
     let triggerAngle = try control("triggerAngle", NSSlider.self)
-    for angle in [35.0, 67, 95, 72] {
+    for angle in [41.0, 67, 95, 72] {
         triggerAngle.doubleValue = angle
         triggerAngle.sendAction(triggerAngle.action, to: triggerAngle.target)
         controller.updateAngleStatus(.available(105))
@@ -165,7 +165,7 @@ private func runLiveLidLayoutChecks() throws {
     let slider = children.first { $0.identifier?.rawValue == "triggerAngle" } as! NSSlider
     controller.updateAngleStatus(.available(105))
     tab.performClick(nil)
-    for angle in [73.0, 67, 35, 95] {
+    for angle in [73.0, 67, 41, 95] {
         slider.doubleValue = angle
         slider.sendAction(slider.action, to: slider.target)
         // Exercise the next live layout pass, rather than only forcing layout

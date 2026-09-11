@@ -245,7 +245,9 @@ func runConfigurableLidRadiusWithoutAccessChecks() throws {
     preferences.enhancedFrostingEnabled = true
     settings.refreshPreferences()
     try expect(!radiusIsVisible() && ShadePreferences(defaults: defaults).automaticBlurRadius == 46, "Re-enabling snapshots without capture access must keep the radius hidden and preserve its saved value")
-    let status = children.first { $0.identifier?.rawValue == "lidPermissionStatus" } as! NSTextField
+    guard let status = children.first(where: { $0.identifier?.rawValue == "lidRecordingExplanation" }) as? NSTextField else {
+        throw CheckFailure.failed("Missing visible lid recording explanation")
+    }
     try expect(!status.isHiddenOrHasHiddenAncestor && status.stringValue.contains("not available"), "The lid page must visibly explain why current capture access is unavailable")
     print("PASS: ineffective lid radius stays hidden while its saved value survives permission-free refreshes")
 }

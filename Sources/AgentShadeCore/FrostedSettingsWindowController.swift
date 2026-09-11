@@ -47,6 +47,7 @@ public final class FrostedSettingsWindowController: NSWindowController, NSWindow
     private let permissionHelpButton = NSButton()
     private let recordingAccessLabel = NSTextField(labelWithString: "")
     private let lidRecordingAccessLabel = NSTextField(labelWithString: "")
+    private var recordingExplanations: [NSTextField] = []
     private let lidPermissionLabel = NSTextField(wrappingLabelWithString: "")
     private let lidPermissionButton = NSButton()
     private let lidPermissionRefreshButton = NSButton()
@@ -83,6 +84,7 @@ public final class FrostedSettingsWindowController: NSWindowController, NSWindow
     private var pendingOcclusionClose: DispatchWorkItem?
     private var permissionSettingsInteraction = false
     private var permissionSettingsLeftApplication = false
+    private var permissionSettingsReturnedToApplication = false
 
     public init(preferences: ShadePreferences, permissions: ScreenCapturePermissionChecking = SystemScreenCapturePermission(),
                 snapshotValidator: ScreenSnapshotProviding = ScreenSnapshotProvider(),
@@ -111,7 +113,7 @@ public final class FrostedSettingsWindowController: NSWindowController, NSWindow
         refreshPreferences()
         selectPage(0)
         activationObserver = NotificationCenter.default.addObserver(forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
-            self?.finishPermissionSettingsInteraction()
+            self?.permissionSettingsDidReturnToApplication()
             self?.onRefreshSystemState?()
             self?.updatePermissionStatus()
             self?.updatePreview()
@@ -119,6 +121,7 @@ public final class FrostedSettingsWindowController: NSWindowController, NSWindow
         deactivationObserver = NotificationCenter.default.addObserver(forName: NSApplication.didResignActiveNotification, object: nil, queue: .main) { [weak self] _ in
             guard let self, self.permissionSettingsInteraction else { return }
             self.permissionSettingsLeftApplication = true
+            self.permissionSettingsReturnedToApplication = false
         }
         displayObserver = NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main) { [weak self] _ in
             self?.invalidateCaptureVerification()
@@ -138,6 +141,7 @@ public final class FrostedSettingsWindowController: NSWindowController, NSWindow
         cancelPendingOcclusionClose()
         permissionSettingsInteraction = false
         permissionSettingsLeftApplication = false
+        permissionSettingsReturnedToApplication = false
         didNotifyClose = false
         hasBeenVisible = false
         occlusionCheckPending = false
@@ -221,13 +225,14 @@ public final class FrostedSettingsWindowController: NSWindowController, NSWindow
         cancelPendingOcclusionClose()
         permissionSettingsInteraction = false
         permissionSettingsLeftApplication = false
+        permissionSettingsReturnedToApplication = false
         didNotifyClose = true
         snapshotValidator.cancel()
         if captureVerification == .checking { updateCaptureVerification(.unchecked) }
         cancelShortcutRecording(); onClose()
     }
     public func windowDidBecomeKey(_ notification: Notification) {
-        finishPermissionSettingsInteraction()
+        permissionSettingsDidReturnToApplication()
         onRefreshSystemState?(); updatePermissionStatus(); updatePreview()
     }
     public func windowDidChangeOcclusionState(_ notification: Notification) {
@@ -235,6 +240,7 @@ public final class FrostedSettingsWindowController: NSWindowController, NSWindow
             hasBeenVisible = true
             occlusionCheckPending = false
             cancelPendingOcclusionClose()
+            finishPermissionSettingsInteraction()
             return
         }
         scheduleCloseIfOccluded()
@@ -245,10 +251,30 @@ public final class FrostedSettingsWindowController: NSWindowController, NSWindow
         pendingOcclusionClose = nil
     }
 
-    private func finishPermissionSettingsInteraction() {
+    private func permissionSettingsDidReturnToApplication() {
         guard permissionSettingsInteraction, permissionSettingsLeftApplication else { return }
+        permissionSettingsReturnedToApplication = true
+        finishPermissionSettingsInteraction()
+    }
+
+    private func beginPermissionSettingsInteraction() {
+        cancelPendingOcclusionClose()
+        // A native prompt may hand off directly to System Settings without
+        // returning to this app. Preserve that in-flight departure state.
+        guard !permissionSettingsInteraction else { return }
+        permissionSettingsInteraction = true
+        permissionSettingsLeftApplication = false
+        permissionSettingsReturnedToApplication = false
+    }
+
+    private func finishPermissionSettingsInteraction() {
+        // Activation/key-window notifications can arrive before visibility has
+        // recovered. Keep protection until BOTH have happened, in either order.
+        guard permissionSettingsInteraction, permissionSettingsReturnedToApplication,
+              window?.occlusionState.contains(.visible) == true else { return }
         permissionSettingsInteraction = false
         permissionSettingsLeftApplication = false
+        permissionSettingsReturnedToApplication = false
         occlusionCheckPending = false
         cancelPendingOcclusionClose()
     }
@@ -400,8 +426,9 @@ public final class FrostedSettingsWindowController: NSWindowController, NSWindow
         status.font = .systemFont(ofSize: 12)
         button.widthAnchor.constraint(equalToConstant: 110).isActive = true
         status.setContentHuggingPriority(.required, for: .horizontal)
-        let explanation = note("合盖时获取桌面静止快照，用于真实桌面模糊，并非录制视频。仅在本机内存处理，不保存、不上传；不授权也可使用内置毛玻璃渐变。", "Lid shading uses a still desktop snapshot for real desktop blur, not video recording. Processed in local memory, never saved or uploaded. Built-in gradients work without access.")
+        let explanation = note("", "")
         explanation.identifier = NSUserInterfaceItemIdentifier(lid ? "lidRecordingExplanation" : "recordingExplanation")
+        recordingExplanations.append(explanation)
         return vertical([horizontal([button, status, NSView()], spacing: 10), explanation], spacing: 6)
     }
     private func selectPage(_ index: Int) {
@@ -454,7 +481,10 @@ public final class FrostedSettingsWindowController: NSWindowController, NSWindow
     private func updatePermissionStatus() {
         let allowed = permissions.isGranted
         for label in [recordingAccessLabel, lidRecordingAccessLabel] {
-            label.stringValue = allowed ? text("已授权", "Authorized") : text("未授权", "Not authorized")
+            label.stringValue = allowed ? text("录屏已授权", "Capture authorized") : text("内置毛玻璃可用", "Built-in frost ready")
+            if !allowed && permissionRequestAccepted {
+                label.stringValue = text("授权待生效", "Restart to apply")
+            }
             label.textColor = allowed ? .systemGreen : .secondaryLabelColor
         }
         if previousPermission != allowed {
@@ -473,11 +503,16 @@ public final class FrostedSettingsWindowController: NSWindowController, NSWindow
             }
         }
         else if permissionRequestAccepted { permissionLabel.stringValue = text("屏幕录制：已接受授权，请退出并重新打开 AgentShade", "Screen Recording: request accepted; quit and reopen AgentShade") }
-        else { permissionLabel.stringValue = text("屏幕录制：当前应用未取得权限 · 使用内置底图。已开启？请重启或查看帮助。", "Screen Recording: not available to the current app · using artwork. Already enabled? Restart or see Help.") }
+        else { permissionLabel.stringValue = text("内置毛玻璃可正常使用。真实桌面模糊：当前应用未取得权限；需要此可选增强时再授权。", "Built-in frost works without permission. Desktop capture is not available to this app; grant access only for this optional enhancement.") }
         if !preferences.enhancedFrostingEnabled {
             permissionLabel.stringValue = text("内置底图模式 · 无需录屏权限，不模糊真实桌面", "Built-in artwork mode · no capture permission needed; no desktop blur")
         }
-        permissionLabel.textColor = preferences.enhancedFrostingEnabled && (!allowed || captureVerification == .failed) ? .systemOrange : .secondaryLabelColor
+        permissionLabel.textColor = preferences.enhancedFrostingEnabled && allowed && captureVerification == .failed ? .systemOrange : .secondaryLabelColor
+        let explanation = text("录屏权限仅用于合盖时获取桌面静止快照，在本机内存中模糊，不保存、不上传、不录音。", "Permission is used only for a still desktop snapshot during lid shading: local memory, no saving, uploading or audio.")
+        for field in recordingExplanations {
+            field.stringValue = permissionLabel.stringValue + "\n" + explanation
+            field.textColor = permissionLabel.textColor
+        }
         permissionButton.title = allowed ? text("当前应用可用", "Access Available") : text("授权屏幕录制…", "Allow Screen Recording…")
         permissionButton.isEnabled = !allowed && !permissionRequestAccepted
         for button in [permissionButton, lidPermissionButton] { button.isHidden = allowed || !preferences.enhancedFrostingEnabled }
@@ -548,16 +583,18 @@ public final class FrostedSettingsWindowController: NSWindowController, NSWindow
             preferences.enhancedFrostingEnabled = true
             // Begin before requesting access: the system prompt itself may
             // deactivate the app before the Settings launch call returns.
-            cancelPendingOcclusionClose()
-            permissionSettingsInteraction = true
-            permissionSettingsLeftApplication = false
+            beginPermissionSettingsInteraction()
             if !permissions.isGranted { permissionRequestAccepted = permissions.requestAccess() }
             if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
+                // The native permission prompt can complete an entire return
+                // cycle above. System Settings is a separate external interaction.
+                beginPermissionSettingsInteraction()
                 // Opening another app is asynchronous. The synchronous interaction
                 // guard above ends before System Settings can cover this window.
                 if !openRecordingSettings(url) {
                     permissionSettingsInteraction = false
                     permissionSettingsLeftApplication = false
+                    permissionSettingsReturnedToApplication = false
                 }
             }
             updatePermissionStatus(); updatePreview(); onChange()

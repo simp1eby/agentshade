@@ -51,13 +51,13 @@ func runPreviewLayoutRecoveryChecks() throws {
     try expect(button.bounds.width <= 150, "The recording entry must remain compact, not stretch to the whole column")
     let status = try get("lidRecordingAccess", NSTextField.self)
     let explanation = try get("lidRecordingExplanation", NSTextField.self)
-    try expect(explanation.stringValue.contains("still desktop snapshot") && explanation.stringValue.contains("without access"), "The lid page must explain snapshot use and the permission-free fallback")
+    try expect(explanation.stringValue.contains("still desktop snapshot") && explanation.stringValue.contains("without permission"), "The lid page must explain snapshot use and the permission-free fallback")
     let lidPreview = views.compactMap { $0 as? FrostedPreviewView }.last!
     try expect(abs(lidPreview.bounds.width / lidPreview.bounds.height - 4.0 / 3.0) < 0.01, "The lid preview viewport must retain the example desktop's 4:3 proportions")
-    try expect(status.stringValue == "Not authorized", "Unavailable recording access must be visible without hovering")
+    try expect(status.stringValue == "Built-in frost ready", "Unavailable capture access must show that the permission-free effect is still usable")
     access.isGranted = true
     NotificationCenter.default.post(name: NSApplication.didBecomeActiveNotification, object: NSApp)
-    try expect(status.stringValue == "Authorized", "The visible status must refresh when process access changes")
+    try expect(status.stringValue == "Capture authorized", "The visible status must refresh when process access changes")
     let trigger = try get("triggerAngle", NSSlider.self)
     let simulator = try get("previewAngle", NSSlider.self)
     content.layoutSubtreeIfNeeded()
@@ -75,9 +75,9 @@ func runPreviewLayoutRecoveryChecks() throws {
         try expect(abs(frame.minY - start.minY) < 1 && abs(previewFrame.minY - previewStart.minY) < 1, "Live start-angle callbacks must not move either slider down the page")
     }
     preferences.language = .chinese; controller.refreshLanguage()
-    try expect(status.stringValue == "已授权", "The visible permission state must follow language selection")
+    try expect(status.stringValue == "录屏已授权", "The visible permission state must follow language selection")
     access.isGranted = false
     NotificationCenter.default.post(name: NSApplication.didBecomeActiveNotification, object: NSApp)
-    try expect(status.stringValue == "未授权", "Revoked process access must not retain the authorized badge")
+    try expect(status.stringValue == "内置毛玻璃可用", "Revoked process access must show the usable fallback instead of retaining authorization")
     print("PASS: compact recording entry, visible live permission state and stable slider positions")
 }

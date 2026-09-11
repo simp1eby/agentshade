@@ -3,7 +3,8 @@ import AppKit
 
 private final class ChangingSettingsPermission: ScreenCapturePermissionChecking {
     var isGranted = true
-    func requestAccess() -> Bool { false }
+    var onRequest: (() -> Void)?
+    func requestAccess() -> Bool { onRequest?(); return false }
 }
 
 /// Model visibility notifications without changing the user's actual TCC grant.
@@ -18,6 +19,13 @@ private final class ReportedOcclusionWindow: NSWindow {
 
 func runPermissionOcclusionChecks() throws {
     _ = NSApplication.shared
+    for returnOrder in ["activation-first", "key-window-first", "visibility-first", "prompt-then-settings", "prompt-still-external"] {
+        try checkPermissionReturn(returnOrder: returnOrder)
+    }
+    print("PASS: slow permission returns preserve settings in every notification order; ordinary full coverage still closes")
+}
+
+private func checkPermissionReturn(returnOrder: String) throws {
     let suite = "AgentShadeChecks.PermissionOcclusion.\(UUID().uuidString)"
     let defaults = UserDefaults(suiteName: suite)!
     defer { defaults.removePersistentDomain(forName: suite) }
@@ -36,16 +44,42 @@ func runPermissionOcclusionChecks() throws {
         controller.windowDidChangeOcclusionState(Notification(name: NSWindow.didChangeOcclusionStateNotification, object: window))
     }
     report([.visible])
+    if returnOrder == "prompt-then-settings" || returnOrder == "prompt-still-external" {
+        access.isGranted = false
+        access.onRequest = {
+            NotificationCenter.default.post(name: NSApplication.didResignActiveNotification, object: NSApp)
+            report([])
+            if returnOrder == "prompt-then-settings" {
+                NotificationCenter.default.post(name: NSApplication.didBecomeActiveNotification, object: NSApp)
+                report([.visible])
+            }
+        }
+    }
     button.performClick(nil)
-    NotificationCenter.default.post(name: NSApplication.didResignActiveNotification, object: NSApp)
+    if returnOrder != "prompt-still-external" {
+        NotificationCenter.default.post(name: NSApplication.didResignActiveNotification, object: NSApp)
+    }
     report([])
     RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.4))
     try expect(window.closeCount == 0, "Opening permission settings must protect AgentShade for the entire external interaction, not just the launch call")
     access.isGranted = false
-    NotificationCenter.default.post(name: NSApplication.didBecomeActiveNotification, object: NSApp)
+    switch returnOrder {
+    case "activation-first", "prompt-then-settings", "prompt-still-external":
+        NotificationCenter.default.post(name: NSApplication.didBecomeActiveNotification, object: NSApp)
+    case "key-window-first":
+        controller.windowDidBecomeKey(Notification(name: NSWindow.didBecomeKeyNotification, object: window))
+    default:
+        // Settings can be partially visible while the external permission UI
+        // remains active. That alone must not end the protected interaction.
+        report([.visible])
+    }
     report([])
-    RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.04))
+    RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.4))
+    try expect(window.closeCount == 0, "\(returnOrder): permission return must wait for confirmed visibility, even beyond the normal occlusion debounce")
     report([.visible])
+    if returnOrder == "visibility-first" {
+        NotificationCenter.default.post(name: NSApplication.didBecomeActiveNotification, object: NSApp)
+    }
     RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.4))
     try expect(window.closeCount == 0, "Revoking capture access with a transient visibility notification must not close settings")
     try expect(controller.window === window && preferences.triggerAngle == 85, "Returning from System Settings must preserve the same AgentShade settings window and configuration")
@@ -58,5 +92,4 @@ func runPermissionOcclusionChecks() throws {
     report([])
     RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.4))
     try expect(window.closeCount == 1, "After returning from permission settings, ordinary sustained full coverage must still close the window")
-    print("PASS: permission round trip preserves settings; ordinary full coverage still closes")
 }

@@ -27,7 +27,7 @@ AgentShade creates full-screen overlay windows. It does not change hardware brig
 - Customize the global shortcut and optionally require that shortcut again to dismiss.
 - Enable a smooth lid-angle frost curve on hardware with a readable sensor.
 - Optionally blur a single in-memory desktop snapshot for enhanced lid frosting.
-- Keep a permission-free built-in artwork fallback when capture is disabled, unavailable, or unsuccessful.
+- Keep a permission-free built-in artwork fallback when access is not granted, unavailable, or capture fails.
 - Switch the complete interface between Simplified Chinese and English without restarting.
 - Start AgentShade at login through the standard macOS login-item service.
 
@@ -72,6 +72,8 @@ After a user dismisses an automatic shade, it stays suppressed for that lid cycl
 
 On first launch, a Chinese first preferred language selects Simplified Chinese; other languages select English. The saved in-app choice then takes precedence over later system-language changes.
 
+The settings window has a fixed size. Losing focus or being partially covered does not close it. Sustained full coverage closes it and resumes lid automation, except while interacting with the Screen Recording prompt or System Settings. Returning from those screens preserves settings until the window is visible again.
+
 ## Requirements and compatibility
 
 - macOS 13 or later.
@@ -94,7 +96,9 @@ cd agentshade
 open outputs
 ```
 
-The script creates a release build at `outputs/AgentShade.app` and uses ad-hoc signing by default. The last command opens the output folder: move the app to `/Applications`, then launch it from there. Keep this location stable before granting permissions or enabling Launch at Login.
+The script creates a release build at `outputs/AgentShade.app`. It reuses an installed certificate named `AgentShade Local Signing` when available; otherwise it uses ad-hoc signing. You can select an existing signing identity with `AGENTSHADE_SIGNING_IDENTITY`. The new bundle is signed and verified in a temporary folder before replacing the previous app; denied signing or failed verification leaves the previous app intact. macOS may require you to confirm access to the signing key in Keychain. Quit an existing AgentShade instance before rebuilding its app bundle.
+
+The last command opens the output folder: move the app to `/Applications`, then launch it from there. Keep this location stable before granting permissions or enabling Launch at Login. A local signing certificate is not Apple Developer ID signing or notarization. Certificates and private keys are not part of this repository; never commit them.
 
 If macOS requires approval for the login item, allow AgentShade in **System Settings → General → Login Items & Extensions**.
 
@@ -107,6 +111,8 @@ Black, custom media, manual Frosted Glass, and the built-in lid fallback need no
 With access available, enhanced **automatic lid shading** captures one complete frame for each selected display, excludes AgentShade's own windows, and applies blur and the shared blue material locally. Captures are held in memory, are not saved or uploaded, contain no audio or cursor, and are not continuous video recording. Captured pixels are released after dismissal.
 
 Capture success and the macOS permission switch are treated as separate facts. If capture fails or is incomplete, AgentShade continues with its built-in gradient instead.
+
+**Frosting can work without capture permission.** “Built-in frost ready” means the permission-free artwork is available, not that desktop capture is authorized. “Capture authorized” means the current app has access, while the visible explanation separately reports whether a frame has actually been verified or capture has failed. If you prefer the built-in effect, there is no need to grant access. These states are shown in both Lid Gradient and General; no tooltip is required to read them.
 
 After granting access, quit and reopen the same AgentShade app. An ad-hoc rebuild can change the app's privacy identity, so an older grant may no longer match even when System Settings still displays an AgentShade entry. Keep the app at a stable path, restart that exact app, and use the Screen Recording button in Lid Gradient or General to reopen System Settings and confirm the current app entry.
 
@@ -137,6 +143,9 @@ Useful focused checks include:
 ./scripts/run-checks.sh --default-blur
 ./scripts/run-checks.sh --lid-curve
 ./scripts/run-checks.sh --language-permissions
+./scripts/run-checks.sh --permission-presentation
+./scripts/run-checks.sh --permission-occlusion
+./scripts/run-checks.sh --simple-lid
 ```
 
 Checks that create AppKit windows, exercise real overlays, or read hardware require a logged-in graphical macOS session. For the optional integration and sensor path, run:

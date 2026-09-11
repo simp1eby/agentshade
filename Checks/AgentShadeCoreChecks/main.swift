@@ -237,6 +237,7 @@ func runStatusItemIconChecks() throws {
 }
 
 do {
+    if CommandLine.arguments.contains("--permission-presentation") { try runPermissionPresentationChecks(); exit(0) }
     if CommandLine.arguments.contains("--default-blur") { try runDefaultBlurRadiusChecks(); exit(0) }
     if CommandLine.arguments.contains("--permission-occlusion") { try runPermissionOcclusionChecks(); exit(0) }
     if CommandLine.arguments.contains("--responsive-lid") { try runResponsiveLidChecks(); exit(0) }
@@ -315,6 +316,7 @@ do {
     try runFrostedSettingsChecks()
     try runLocalizationChecks()
     try runLanguagePermissionSettingsChecks()
+    try runPermissionPresentationChecks()
     try runExperienceSettingsChecks()
     try runMenuExperienceChecks()
     try runShortcutChecks()
