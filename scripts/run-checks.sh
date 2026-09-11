@@ -24,4 +24,4 @@ BIN_PATH="$(
         --show-bin-path
 )"
 
-"$BIN_PATH/AgentShadeCoreChecks"
+"$BIN_PATH/AgentShadeCoreChecks" "$@"

@@ -237,6 +237,64 @@ func runStatusItemIconChecks() throws {
 }
 
 do {
+    if CommandLine.arguments.contains("--default-blur") { try runDefaultBlurRadiusChecks(); exit(0) }
+    if CommandLine.arguments.contains("--permission-occlusion") { try runPermissionOcclusionChecks(); exit(0) }
+    if CommandLine.arguments.contains("--responsive-lid") { try runResponsiveLidChecks(); exit(0) }
+    if CommandLine.arguments.contains("--navigation-focus") { try runNavigationFocusChecks(); exit(0) }
+    if CommandLine.arguments.contains("--preview-visual") { try runPreviewVisualChecks(); exit(0) }
+    if CommandLine.arguments.contains("--preview-rendering") { try runPreviewRenderingRecoveryChecks(); exit(0) }
+    if CommandLine.arguments.contains("--preview-recovery") { try runPreviewLayoutRecoveryChecks(); exit(0) }
+    if CommandLine.arguments.contains("--simple-lid") { try runSimpleLidSettingsChecks(); exit(0) }
+    if CommandLine.arguments.contains("--linked-preview") { try runLinkedLidPreviewChecks(); exit(0) }
+    if CommandLine.arguments.contains("--frost-palette") { try runSharedFrostedPaletteChecks(); exit(0) }
+    if CommandLine.arguments.contains("--effective-blur") { try runEffectiveBlurSettingsChecks(); exit(0) }
+    if CommandLine.arguments.contains("--capture-feedback") { try runCaptureFeedbackChecks(); exit(0) }
+    if CommandLine.arguments.contains("--stable-manual") { try runStableManualArtworkChecks(); exit(0) }
+    if CommandLine.arguments.contains("--dismissal") { try runShortcutDismissalChecks(); exit(0) }
+    if CommandLine.arguments.contains("--settings-occlusion") { try runSettingsOcclusionChecks(); exit(0) }
+    if CommandLine.arguments.contains("--lid-radius") { try runConfigurableLidRadiusWithoutAccessChecks(); exit(0) }
+    if CommandLine.arguments.contains("--slider-progress") { try runSliderProgressChecks(); exit(0) }
+    if CommandLine.arguments.contains("--lid-presentation") { _ = NSApplication.shared; try runGentleLidPresentationChecks(); print("PASS: gentle lid preview, real windows and synthetic pixels"); exit(0) }
+    if CommandLine.arguments.contains("--lid-curve") { try runGentleLidCurveChecks(); print("PASS: gentle lid curve and 40-degree endpoint"); exit(0) }
+    if CommandLine.arguments.contains("--settings-callbacks") { _ = NSApplication.shared; try runSettingsCallbackIntegrationChecks(); exit(0) }
+    if CommandLine.arguments.contains("--fallback-recovery") { _ = NSApplication.shared; try runBuiltInFallbackRecoveryChecks(); exit(0) }
+    if CommandLine.arguments.contains("--independent-triggers") { _ = NSApplication.shared; try runIndependentTriggerRoutingChecks(); exit(0) }
+    if CommandLine.arguments.contains("--independent-migration") { try runIndependentSettingsMigrationChecks(); exit(0) }
+    if CommandLine.arguments.contains("--removed-stretch") { try runRemovedStretchChecks(); exit(0) }
+    if CommandLine.arguments.contains("--builtin-frost") { _ = NSApplication.shared; try runBuiltInFrostedFallbackChecks(); exit(0) }
+    if CommandLine.arguments.contains("--compact-menu") { _ = NSApplication.shared; try runCompactMenuChecks(); exit(0) }
+    if CommandLine.arguments.contains("--unified-settings") { try runUnifiedSettingsChecks(); exit(0) }
+    if CommandLine.arguments.contains("--shortcuts") { try runShortcutChecks(); try runShortcutRecorderChecks(); print("PASS: shortcut persistence, replacement, recording and cancellation"); exit(0) }
+    if CommandLine.arguments.contains("--shortcut-native") { try runShortcutNativeRegistrationChecks(); print("PASS: native shortcut registration and event routing"); exit(0) }
+    if CommandLine.arguments.contains("--frost-cold") { try runFrostedColdStartTimingChecks(); exit(0) }
+    if CommandLine.arguments.contains("--frost-start") { try runClearStartFrostingChecks(); exit(0) }
+    if CommandLine.arguments.contains("--frost-native") { _ = NSApplication.shared; try runNativeStrengthGradientChecks(); exit(0) }
+    if CommandLine.arguments.contains("--frost-manual") { _ = NSApplication.shared; try runManualFrostedStrengthChecks(); exit(0) }
+    if CommandLine.arguments.contains("--menu-experience") {
+        _ = NSApplication.shared
+        try runMenuExperienceChecks()
+        print("PASS: single language button and sensor-gated menu")
+        exit(0)
+    }
+    if CommandLine.arguments.contains("--experience-settings") {
+        try runExperienceSettingsChecks()
+        print("PASS: unified frosting migration and hardware capability controls")
+        exit(0)
+    }
+    if CommandLine.arguments.contains("--language-permissions") {
+        try runLocalizationChecks()
+        try runLanguagePermissionSettingsChecks()
+        print("PASS: first-use language, live switching and permission refresh")
+        exit(0)
+    }
+    if CommandLine.arguments.contains("--angle-controls") {
+        _ = NSApplication.shared
+        try runConfigurableFrostingChecks()
+        try runFullAngleGradientChecks()
+        try runFrostedSettingsChecks()
+        print("PASS: separate start/preview ranges and continuous frosting to 40 degrees")
+        exit(0)
+    }
     try runMediaStoreChecks()
     try runShadeSessionChecks()
     try runAspectFillChecks()
@@ -244,12 +302,76 @@ do {
     try runGlobalHotKeyChecks()
     try runLoginItemPolicyChecks()
     try runStatusItemIconChecks()
+    try runLidAnglePolicyChecks()
+    try runShadePreferencesChecks()
+    try runFrostedWindowChecks()
+    try runConfigurableFrostingChecks()
+    try runGentleLidCurveChecks()
+    try runFullAngleGradientChecks()
+    try runClearStartFrostingChecks()
+    try runNativeStrengthGradientChecks()
+    try runSmoothProgressChecks()
+    try runFrostedRendererChecks()
+    try runFrostedSettingsChecks()
+    try runLocalizationChecks()
+    try runLanguagePermissionSettingsChecks()
+    try runExperienceSettingsChecks()
+    try runMenuExperienceChecks()
+    try runShortcutChecks()
+    try runShortcutRecorderChecks()
+    try runUnifiedSettingsChecks()
+    try runCompactMenuChecks()
+    try runSettingsCallbackIntegrationChecks()
+    try runIndependentSettingsMigrationChecks()
+    try runRemovedStretchChecks()
+    try runBuiltInFrostedFallbackChecks()
+    if let path = CommandLine.arguments.first(where: { $0.hasPrefix("--export-preview=") }) {
+        try exportFrostedExample(to: String(path.dropFirst("--export-preview=".count)))
+    }
+    if CommandLine.arguments.contains("--integration") {
+        try runDefaultBlurRadiusChecks()
+        try runPermissionOcclusionChecks()
+        try runResponsiveLidChecks()
+        try runNavigationFocusChecks()
+        try runPreviewVisualChecks()
+        try runPreviewRenderingRecoveryChecks()
+        try runPreviewLayoutRecoveryChecks()
+        try runLinkedLidPreviewChecks()
+        try runSharedFrostedPaletteChecks()
+        try runEffectiveBlurSettingsChecks()
+        try runCaptureFeedbackChecks()
+        try runShortcutDismissalChecks()
+        try runSettingsOcclusionChecks()
+        try runConfigurableLidRadiusWithoutAccessChecks()
+        try runSliderProgressChecks()
+        try runStableManualArtworkChecks()
+        try runGentleLidPresentationChecks()
+        try runIndependentTriggerRoutingChecks()
+        try runBuiltInFallbackRecoveryChecks()
+        try runManualFrostedStrengthChecks()
+        try runLidControllerIntegrationChecks()
+        try runDisplayWakeTransitionChecks()
+        try runEnhancementModeReuseChecks()
+        try runFrostedHandoffChecks()
+        try runFrostedDismissalChecks()
+        print("PASS: real-window lid controller integration")
+        print("PASS: display wake continuity and frosted handoff")
+    }
+    if CommandLine.arguments.contains("--sensor") { try runLidMonitorHardwareChecks() }
     print("PASS: MediaStore")
     print("PASS: ShadeSession")
     print("PASS: AspectFillGeometry")
     print("PASS: ShadeWindow")
     print("PASS: LoginItemPolicy")
     print("PASS: StatusItemIcon")
+    print("PASS: LidAnglePolicy and sensor reports")
+    print("PASS: ShadePreferences")
+    print("PASS: FrostedWindow")
+    print("PASS: ConfigurableFrosting")
+    print("PASS: FrostedRenderer")
+    print("PASS: Smooth angle interpolation")
+    print("PASS: FrostedSettings controls and layout")
+    print("PASS: built-in gradient, unified settings, independent triggers, language sync and custom shortcuts")
 } catch {
     fputs("FAIL: \(error)\n", stderr)
     exit(1)

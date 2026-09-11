@@ -28,7 +28,8 @@ public final class ShadeSession {
             newOverlays.forEach { $0.close() }
             return
         }
-        overlays.forEach { $0.close() }
+        let retained = Set(newOverlays.map { ObjectIdentifier($0) })
+        overlays.filter { !retained.contains(ObjectIdentifier($0)) }.forEach { $0.close() }
         overlays = newOverlays
     }
 
