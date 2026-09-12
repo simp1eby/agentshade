@@ -85,6 +85,7 @@ public final class FrostedSettingsWindowController: NSWindowController, NSWindow
     private var permissionSettingsInteraction = false
     private var permissionSettingsLeftApplication = false
     private var permissionSettingsReturnedToApplication = false
+    private var permissionSettingsRecoveryWorkItem: DispatchWorkItem?
 
     public init(preferences: ShadePreferences, permissions: ScreenCapturePermissionChecking = SystemScreenCapturePermission(),
                 snapshotValidator: ScreenSnapshotProviding = ScreenSnapshotProvider(),
@@ -142,6 +143,8 @@ public final class FrostedSettingsWindowController: NSWindowController, NSWindow
         permissionSettingsInteraction = false
         permissionSettingsLeftApplication = false
         permissionSettingsReturnedToApplication = false
+        permissionSettingsRecoveryWorkItem?.cancel()
+        permissionSettingsRecoveryWorkItem = nil
         didNotifyClose = false
         hasBeenVisible = false
         occlusionCheckPending = false
@@ -226,6 +229,8 @@ public final class FrostedSettingsWindowController: NSWindowController, NSWindow
         permissionSettingsInteraction = false
         permissionSettingsLeftApplication = false
         permissionSettingsReturnedToApplication = false
+        permissionSettingsRecoveryWorkItem?.cancel()
+        permissionSettingsRecoveryWorkItem = nil
         didNotifyClose = true
         snapshotValidator.cancel()
         if captureVerification == .checking { updateCaptureVerification(.unchecked) }
@@ -272,11 +277,26 @@ public final class FrostedSettingsWindowController: NSWindowController, NSWindow
         // recovered. Keep protection until BOTH have happened, in either order.
         guard permissionSettingsInteraction, permissionSettingsReturnedToApplication,
               window?.occlusionState.contains(.visible) == true else { return }
-        permissionSettingsInteraction = false
-        permissionSettingsLeftApplication = false
-        permissionSettingsReturnedToApplication = false
-        occlusionCheckPending = false
-        cancelPendingOcclusionClose()
+        guard permissionSettingsRecoveryWorkItem == nil else { return }
+        // A late occlusion notification can still describe the closing System
+        // Settings window. Require a complete, stable visible interval before
+        // ordinary full-coverage auto-close is armed again.
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.permissionSettingsRecoveryWorkItem = nil
+            guard self.permissionSettingsInteraction,
+                  self.permissionSettingsReturnedToApplication,
+                  self.window?.occlusionState.contains(.visible) == true,
+                  self.window?.isVisible == true else { return }
+            self.permissionSettingsInteraction = false
+            self.permissionSettingsLeftApplication = false
+            self.permissionSettingsReturnedToApplication = false
+            self.permissionSettingsRecoveryWorkItem = nil
+            self.occlusionCheckPending = false
+            self.cancelPendingOcclusionClose()
+        }
+        permissionSettingsRecoveryWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35, execute: work)
     }
 
     private func scheduleCloseIfOccluded() {
@@ -595,6 +615,8 @@ public final class FrostedSettingsWindowController: NSWindowController, NSWindow
                     permissionSettingsInteraction = false
                     permissionSettingsLeftApplication = false
                     permissionSettingsReturnedToApplication = false
+                    permissionSettingsRecoveryWorkItem?.cancel()
+                    permissionSettingsRecoveryWorkItem = nil
                 }
             }
             updatePermissionStatus(); updatePreview(); onChange()

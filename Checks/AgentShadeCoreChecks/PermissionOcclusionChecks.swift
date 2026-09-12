@@ -80,6 +80,14 @@ private func checkPermissionReturn(returnOrder: String) throws {
     if returnOrder == "visibility-first" {
         NotificationCenter.default.post(name: NSApplication.didBecomeActiveNotification, object: NSApp)
     }
+    // System Settings can emit a late occluded state after the first visible
+    // notification. It is still part of the permission round trip, not a real
+    // full-coverage dismissal.
+    RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.1))
+    report([])
+    RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.3))
+    try expect(window.closeCount == 0, "A late permission-window occlusion must not close the settings window")
+    report([.visible])
     RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.4))
     try expect(window.closeCount == 0, "Revoking capture access with a transient visibility notification must not close settings")
     try expect(controller.window === window && preferences.triggerAngle == 85, "Returning from System Settings must preserve the same AgentShade settings window and configuration")
