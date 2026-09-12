@@ -1,6 +1,5 @@
-import CoreGraphics
-
-/// Permission preflight and successful frame delivery are separate facts.
+/// Compatibility surface retained for older integrations. AgentShade no
+/// longer requests or checks Screen Recording access.
 public enum ScreenCaptureVerification { case unchecked, checking, ready, failed }
 
 /// Checks the current process, not the appearance of a System Settings toggle.
@@ -12,6 +11,6 @@ public protocol ScreenCapturePermissionChecking {
 
 public struct SystemScreenCapturePermission: ScreenCapturePermissionChecking {
     public init() {}
-    public var isGranted: Bool { CGPreflightScreenCaptureAccess() }
-    public func requestAccess() -> Bool { CGRequestScreenCaptureAccess() }
+    public var isGranted: Bool { false }
+    public func requestAccess() -> Bool { false }
 }

@@ -415,13 +415,10 @@ public final class FrostedSettingsWindowController: NSWindowController, NSWindow
         lidPreview.layer?.masksToBounds = true
         // Match the example desktop instead of squeezing it into a fixed height.
         lidPreview.heightAnchor.constraint(equalTo: lidPreview.widthAnchor, multiplier: 3.0 / 4.0).isActive = true
-        automaticBlurControls = vertical([
-            slider("模糊半径", "Blur radius", automaticBlurSlider, id: "automaticBlur"), automaticBlurHelp
-        ], spacing: 8)
         let controls = vertical([automaticControl, sensorLabel, separator(),
             slider("起效角度 · 41°–95°", "Start angle · 41°–95°", triggerSlider, id: "triggerAngle", accessibility: ("触发开合角度", "Trigger lid angle")),
             restoreLabel, group("覆盖屏幕", "Displays", automaticScope), animationControl, separator(),
-            automaticBlurControls, permissionPanel(lid: true)], spacing: 12)
+            note("内置毛玻璃渐变", "Built-in frosted gradient")], spacing: 12)
         let right = vertical([label("模拟开合", "Simulate lid angle", size: 14, weight: .semibold), lidPreview,
             slider("模拟角度", "Preview angle", angleSlider, id: "previewAngle", accessibility: ("模拟开合角度", "Simulated lid angle"))], spacing: 8)
         let leftColumn = NSView(), rightColumn = NSView()
@@ -437,13 +434,11 @@ public final class FrostedSettingsWindowController: NSWindowController, NSWindow
     }
     private func makeGeneralPage() -> NSView {
         let body = vertical([
-            permissionPanel(lid: false),
             horizontal([label("显示语言", "Language", size: 13, weight: .medium), NSView(), languageControl], spacing: 12),
             note("与状态栏菜单同步；首次使用跟随系统语言。", "Synced with the menu bar. First launch follows your system language."),
             separator(), loginControl,
-            note("仅影响合盖：开启且已授权时，模糊桌面静止快照；否则使用底图渐变。快捷键毛玻璃始终使用蓝色渐变底图，不会中途换画面。", "Lid shading only: blur a still desktop snapshot when enabled and authorized; otherwise fade built-in artwork. Shortcut frosting always keeps its blue gradient artwork without switching images."),
-            note("快照只在本机内存中处理，不保存、不上传、不录制视频。纯黑和自选图片不需要录屏权限。", "Snapshots stay in local memory: no saving, uploading or video recording. Black and custom images need no screen capture access.")], spacing: 18)
-        return page("通用设置", "General", "启动、语言与权限，统一管理。", "Startup, language and permissions in one place.", body: body)
+            note("快捷键和合盖都使用内置毛玻璃渐变，不读取桌面。", "Shortcut and lid shading use the built-in frosted gradient. The desktop is never read.")], spacing: 18)
+        return page("通用设置", "General", "启动与语言，统一管理。", "Startup and language in one place.", body: body)
     }
     private func permissionPanel(lid: Bool) -> NSView {
         let button = lid ? lidPermissionHelpButton : permissionHelpButton
@@ -487,9 +482,9 @@ public final class FrostedSettingsWindowController: NSWindowController, NSWindow
         dismissalHint.stringValue = preferences.manualDismissRequiresShortcut
             ? text("再次按已设置的快捷键恢复，其他按键不会关闭遮罩。仅影响手动遮罩，后台任务继续运行。", "Press your configured shortcut again to dismiss; other keys are ignored. Manual shading only; background tasks keep running.")
             : text("按任意键恢复屏幕，后台任务不受遮罩影响。", "Press any key to dismiss. Shading does not interrupt background tasks.")
-        let useSnapshot = preferences.enhancedFrostingEnabled && permissions.isGranted
-        automaticBlurControls?.isHidden = !useSnapshot
-        automaticBlurSlider.isEnabled = useSnapshot
+        let useSnapshot = false
+        automaticBlurControls?.isHidden = true
+        automaticBlurSlider.isEnabled = false
         manualBlurHelp.stringValue = text("固定蓝色底图，强度调整遮罩深浅。", "Fixed blue artwork; strength adjusts shade depth.")
         automaticBlurHelp.stringValue = text("40° 时达到此半径；越大越模糊，不代表越暗。", "This radius is reached at 40°. Larger means blurrier, not darker.")
         manualFrostControls?.isHidden = !preferences.scene.isFrosted; mediaControls?.isHidden = preferences.scene != .media
@@ -498,61 +493,15 @@ public final class FrostedSettingsWindowController: NSWindowController, NSWindow
         manualPreview.update(scene: .frostedDark, appearance: preferences.appearance, progress: preferences.manualFrostStrength, usesSnapshot: false, mode: .manual)
         let progress = angleSlider.doubleValue >= preferences.triggerAngle ? 0 : preferences.angleAnimationEnabled ? FrostedAppearance.progress(angle: angleSlider.doubleValue, triggerAngle: preferences.triggerAngle) : 1
         lidPreview.update(scene: .frostedDark, appearance: preferences.automaticAppearance, progress: progress, usesSnapshot: useSnapshot, mode: .lidAngle)
-        let caption = useSnapshot ? text("示例桌面 · 增强模糊预览", "Example desktop · enhanced blur preview") : text("内置毛玻璃底图 · 不读取桌面", "Built-in frosted artwork · no desktop capture")
         let manualCaption = text("固定蓝色渐变底图 · 不透出桌面，不会中途更换画面。", "Fixed blue gradient artwork · No desktop showing through or image switching.")
         previewCaption.stringValue = preferences.scene == .black ? text("纯黑遮罩", "Black shade") : preferences.scene == .media ? text("自选图片 / GIF", "Custom image / GIF") : manualCaption
-        lidPreviewCaption.stringValue = caption
+        lidPreviewCaption.stringValue = text("内置毛玻璃底图 · 不读取桌面", "Built-in frosted artwork · no desktop capture")
     }
     private func updateMediaName() { mediaName.stringValue = mediaURL?.lastPathComponent ?? text("尚未选择图片", "No image selected") }
-    private func updatePermissionStatus() {
-        let allowed = permissions.isGranted
-        for label in [recordingAccessLabel, lidRecordingAccessLabel] {
-            label.stringValue = allowed ? text("录屏已授权", "Capture authorized") : text("内置毛玻璃可用", "Built-in frost ready")
-            if !allowed && permissionRequestAccepted {
-                label.stringValue = text("授权待生效", "Restart to apply")
-            }
-            label.textColor = allowed ? .systemGreen : .secondaryLabelColor
-        }
-        if previousPermission != allowed {
-            snapshotValidator.cancel()
-            captureVerification = .unchecked
-            previousPermission = allowed
-            onCaptureVerificationChange?(.unchecked)
-        }
-        if allowed {
-            permissionRequestAccepted = false
-            switch captureVerification {
-            case .unchecked: permissionLabel.stringValue = text("屏幕录制：权限可用 · 尚未验证取图", "Screen Recording: available · snapshot not verified")
-            case .checking: permissionLabel.stringValue = text("屏幕录制：正在验证取图…", "Screen Recording: verifying capture…")
-            case .ready: permissionLabel.stringValue = text("屏幕录制：已验证取图成功", "Screen Recording: capture verified")
-            case .failed: permissionLabel.stringValue = text("屏幕录制：权限可用，但取图失败或不完整 · 暂用内置底图，请重试", "Screen Recording: available, but capture failed or incomplete · using artwork; retry")
-            }
-        }
-        else if permissionRequestAccepted { permissionLabel.stringValue = text("屏幕录制：已接受授权，请退出并重新打开 AgentShade", "Screen Recording: request accepted; quit and reopen AgentShade") }
-        else { permissionLabel.stringValue = text("内置毛玻璃可正常使用。真实桌面模糊：当前应用未取得权限；需要此可选增强时再授权。", "Built-in frost works without permission. Desktop capture is not available to this app; grant access only for this optional enhancement.") }
-        if !preferences.enhancedFrostingEnabled {
-            permissionLabel.stringValue = text("内置底图模式 · 无需录屏权限，不模糊真实桌面", "Built-in artwork mode · no capture permission needed; no desktop blur")
-        }
-        permissionLabel.textColor = preferences.enhancedFrostingEnabled && allowed && captureVerification == .failed ? .systemOrange : .secondaryLabelColor
-        let explanation = text("录屏权限仅用于合盖时获取桌面静止快照，在本机内存中模糊，不保存、不上传、不录音。", "Permission is used only for a still desktop snapshot during lid shading: local memory, no saving, uploading or audio.")
-        for field in recordingExplanations {
-            field.stringValue = permissionLabel.stringValue + "\n" + explanation
-            field.textColor = permissionLabel.textColor
-        }
-        permissionButton.title = allowed ? text("当前应用可用", "Access Available") : text("授权屏幕录制…", "Allow Screen Recording…")
-        permissionButton.isEnabled = !allowed && !permissionRequestAccepted
-        for button in [permissionButton, lidPermissionButton] { button.isHidden = allowed || !preferences.enhancedFrostingEnabled }
-        for button in [captureVerifyButton, lidCaptureVerifyButton] {
-            button.isHidden = !allowed || !preferences.enhancedFrostingEnabled
-            button.isEnabled = captureVerification != .checking
-        }
-        lidPermissionLabel.stringValue = permissionLabel.stringValue
-        permissionHelpButton.toolTip = permissionLabel.stringValue
-        lidPermissionHelpButton.toolTip = permissionLabel.stringValue
-        lidPermissionLabel.textColor = permissionLabel.textColor
-        lidPermissionButton.title = permissionButton.title
-        lidPermissionButton.isEnabled = permissionButton.isEnabled
-    }
+    /// Kept as a compatibility hook for older callers. Screen Recording is no
+    /// longer part of the product, so refreshing settings never queries TCC or
+    /// updates permission UI.
+    private func updatePermissionStatus() {}
     public func updateCaptureVerification(_ state: ScreenCaptureVerification) {
         updatePermissionStatus()
         captureVerification = state
@@ -605,28 +554,8 @@ public final class FrostedSettingsWindowController: NSWindowController, NSWindow
     }
     @objc private func refreshPermission() { updatePermissionStatus(); updatePreview() }
     @objc private func configureRecording() {
-        withSettingsInteraction {
-            preferences.enhancedFrostingEnabled = true
-            // Begin before requesting access: the system prompt itself may
-            // deactivate the app before the Settings launch call returns.
-            beginPermissionSettingsInteraction()
-            if !permissions.isGranted { permissionRequestAccepted = permissions.requestAccess() }
-            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
-                // The native permission prompt can complete an entire return
-                // cycle above. System Settings is a separate external interaction.
-                beginPermissionSettingsInteraction()
-                // Opening another app is asynchronous. The synchronous interaction
-                // guard above ends before System Settings can cover this window.
-                if !openRecordingSettings(url) {
-                    permissionSettingsInteraction = false
-                    permissionSettingsLeftApplication = false
-                    permissionSettingsReturnedToApplication = false
-                    permissionSettingsRecoveryWorkItem?.cancel()
-                    permissionSettingsRecoveryWorkItem = nil
-                }
-            }
-            updatePermissionStatus(); updatePreview(); onChange()
-        }
+        // Retained only for source compatibility with older automation hooks.
+        // The current product has no desktop-capture path or permission flow.
     }
     @objc private func verifyCapture() {
         guard permissions.isGranted, preferences.enhancedFrostingEnabled, captureVerification != .checking else { return }
@@ -641,17 +570,14 @@ public final class FrostedSettingsWindowController: NSWindowController, NSWindow
         }
     }
     @objc private func requestScreenPermission() {
-        withSettingsInteraction { permissionRequestAccepted = permissions.requestAccess(); updatePermissionStatus(); updatePreview() }
+        // Screen Recording access is intentionally unsupported; do not open a
+        // native prompt or System Settings from any legacy selector.
     }
     @objc private func showPermissionHelp() {
         withSettingsInteraction { presentPermissionHelp() }
     }
     private func presentPermissionHelp() {
-        let alert = NSAlert()
-        alert.messageText = text("系统已开启，但当前应用仍不可用？", "Enabled in System Settings, but still unavailable?")
-        alert.informativeText = text("1. 在“录屏与系统录音”中开启当前 AgentShade，然后退出并重新打开。\n2. 若开关已开但仍不可用，移除旧 AgentShade 项，再用“＋”添加下面的当前应用并授权。\n\n本地重新编译可能改变临时签名，旧授权无法匹配新版；仅重启不一定能修复。使用稳定代码签名可避免这一类更新问题。\n\n无权限时仍可使用内置底图；它不会读取或模糊真实桌面。\n\n当前应用：\(Bundle.main.bundleURL.path)", "1. Enable this AgentShade in Screen & System Audio Recording, then quit and reopen it.\n2. If access is still unavailable, remove the old AgentShade entry and use + to add the current app below and authorize it again.\n\nLocal rebuilds can change the ad-hoc signature, so an old grant may not match. Restarting alone may not fix this. Stable code signing avoids this class of update issue.\n\nBuilt-in artwork remains available without access; it does not read or blur the real desktop.\n\nCurrent app: \(Bundle.main.bundleURL.path)")
-        alert.addButton(withTitle: text("打开系统设置", "Open System Settings")); alert.addButton(withTitle: text("关闭", "Close"))
-        if alert.runModal() == .alertFirstButtonReturn, let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") { NSWorkspace.shared.open(url) }
+        // No permission guidance is needed now that all frosting is local.
     }
     private func text(_ zh: String, _ en: String) -> String { preferences.language.text(zh, en) }
     private func configure(_ control: NSControl, id: String, action: Selector) { control.identifier = NSUserInterfaceItemIdentifier(id); control.target = self; control.action = action }

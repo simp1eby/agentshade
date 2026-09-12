@@ -36,7 +36,6 @@ public final class ShadeController {
         self.mediaStore = mediaStore
         self.preferences = preferences
         self.snapshots = snapshots
-        if preferences.enhancedFrostingEnabled, CGPreflightScreenCaptureAccess() { FrostedImageRenderer.prepare() }
     }
 
     deinit {
@@ -146,7 +145,6 @@ public final class ShadeController {
 
         NSApp.activate(ignoringOtherApps: true)
         show(windows, animated: true)
-        captureSnapshotsIfNeeded()
         return true
     }
 
@@ -254,22 +252,6 @@ public final class ShadeController {
         }
     }
 
-    private func captureSnapshotsIfNeeded() {
-        captureGeneration += 1
-        snapshots.cancel()
-        let scene = activeTrigger == .lidAngle ? preferences.automaticScene : preferences.scene
-        // Manual frosting deliberately keeps its first blue artwork. Only lid
-        // shading may replace that artwork with a captured, blurred desktop.
-        guard activeTrigger == .lidAngle, !displaySleeping, scene.isFrosted, preferences.enhancedFrostingEnabled else { return }
-        let generation = captureGeneration
-        onSnapshotStatusChange?(.checking)
-        snapshots.capture(displayIDs: Array(displayWindows.keys)) { [weak self] images in
-            guard let self, self.isActive, self.captureGeneration == generation else { return }
-            self.onSnapshotStatusChange?(!self.displayWindows.isEmpty && self.displayWindows.keys.allSatisfy { images[$0] != nil } ? .ready : .failed)
-            for (display, window) in self.displayWindows { window.setSnapshot(images[display]) }
-        }
-    }
-
     private func show(_ windows: [ShadeWindow], animated: Bool = false) {
         for window in windows {
             window.present(animated: animated)
@@ -317,6 +299,5 @@ public final class ShadeController {
         // windows retain their snapshots and animation state.
         show(windows)
         session.replace(with: windows)
-        captureSnapshotsIfNeeded()
     }
 }

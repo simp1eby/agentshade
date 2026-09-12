@@ -238,6 +238,7 @@ func runStatusItemIconChecks() throws {
 
 do {
     if CommandLine.arguments.contains("--permission-presentation") { try runPermissionPresentationChecks(); exit(0) }
+    if CommandLine.arguments.contains("--no-capture-permission") { try runNoCapturePermissionChecks(); exit(0) }
     if CommandLine.arguments.contains("--default-blur") { try runDefaultBlurRadiusChecks(); exit(0) }
     if CommandLine.arguments.contains("--permission-occlusion") { try runPermissionOcclusionChecks(); exit(0) }
     if CommandLine.arguments.contains("--responsive-lid") { try runResponsiveLidChecks(); exit(0) }
@@ -284,8 +285,7 @@ do {
     }
     if CommandLine.arguments.contains("--language-permissions") {
         try runLocalizationChecks()
-        try runLanguagePermissionSettingsChecks()
-        print("PASS: first-use language, live switching and permission refresh")
+        print("PASS: first-use language and live switching")
         exit(0)
     }
     if CommandLine.arguments.contains("--angle-controls") {
@@ -315,8 +315,7 @@ do {
     try runFrostedRendererChecks()
     try runFrostedSettingsChecks()
     try runLocalizationChecks()
-    try runLanguagePermissionSettingsChecks()
-    try runPermissionPresentationChecks()
+    try runNoCapturePermissionChecks()
     try runExperienceSettingsChecks()
     try runMenuExperienceChecks()
     try runShortcutChecks()
@@ -332,28 +331,18 @@ do {
     }
     if CommandLine.arguments.contains("--integration") {
         try runDefaultBlurRadiusChecks()
-        try runPermissionOcclusionChecks()
         try runResponsiveLidChecks()
         try runNavigationFocusChecks()
         try runPreviewVisualChecks()
-        try runPreviewRenderingRecoveryChecks()
-        try runPreviewLayoutRecoveryChecks()
         try runLinkedLidPreviewChecks()
         try runSharedFrostedPaletteChecks()
-        try runEffectiveBlurSettingsChecks()
-        try runCaptureFeedbackChecks()
         try runShortcutDismissalChecks()
         try runSettingsOcclusionChecks()
-        try runConfigurableLidRadiusWithoutAccessChecks()
         try runSliderProgressChecks()
-        try runStableManualArtworkChecks()
         try runGentleLidPresentationChecks()
         try runIndependentTriggerRoutingChecks()
-        try runBuiltInFallbackRecoveryChecks()
         try runManualFrostedStrengthChecks()
         try runLidControllerIntegrationChecks()
-        try runDisplayWakeTransitionChecks()
-        try runEnhancementModeReuseChecks()
         try runFrostedHandoffChecks()
         try runFrostedDismissalChecks()
         print("PASS: real-window lid controller integration")

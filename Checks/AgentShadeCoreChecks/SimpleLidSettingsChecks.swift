@@ -50,10 +50,7 @@ func runSimpleLidSettingsChecks() throws {
             content.layoutSubtreeIfNeeded()
             let visible = views.filter { !$0.isHiddenOrHasHiddenAncestor }
             try expect(!visible.contains { ["manualTint", "automaticTint", "previewDeepest", "enhancedFrosting", "lidEnhancedFrosting", "permissionRequest", "lidPermissionRequest", "captureVerify", "lidCaptureVerify"].contains($0.identifier?.rawValue ?? "") }, "Simplified settings must not expose removed tint, maximum-preview or permission-panel controls")
-            if tab != "manual" {
-                let id = tab == "lid" ? "lidConfigureRecording" : "configureRecording"
-                try expect(visible.contains { $0.identifier?.rawValue == id && $0 is NSButton }, "Lid and General must retain their single screen-recording configuration entry")
-            }
+            try expect(!visible.contains { ["lidConfigureRecording", "configureRecording"].contains($0.identifier?.rawValue ?? "") }, "Settings must not expose Screen Recording controls")
         }
         try get("settingsTab.lid", NSButton.self).performClick(nil)
         content.layoutSubtreeIfNeeded()

@@ -376,6 +376,9 @@ public final class FrostedPreviewView: NSView {
     public func update(scene: ShadeScene, appearance: FrostedAppearance, progress: Double, usesSnapshot: Bool = true, mode: FrostedPresentationMode = .lidAngle) {
         self.frostAppearance = appearance
         presentationMode = mode
+        // All user-facing previews use the local artwork; desktop capture was
+        // intentionally removed so this component never needs Screen Recording.
+        let usesSnapshot = false
         // Set the intended strength before assigning a source, exactly as the
         // controller does for an overlay. Otherwise manual preview starts clear.
         imageView.update(scene: scene, appearance: appearance, progress: progress, mode: mode)
