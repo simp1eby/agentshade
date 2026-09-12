@@ -56,6 +56,10 @@ private func checkPermissionReturn(returnOrder: String) throws {
         }
     }
     button.performClick(nil)
+    if returnOrder == "prompt-then-settings" || returnOrder == "prompt-still-external" {
+        try expect(controller.windowShouldClose(window) == false,
+                   "Permission settings interaction must veto direct window-close requests")
+    }
     if returnOrder != "prompt-still-external" {
         NotificationCenter.default.post(name: NSApplication.didResignActiveNotification, object: NSApp)
     }

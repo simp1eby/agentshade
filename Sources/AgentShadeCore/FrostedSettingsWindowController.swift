@@ -223,6 +223,12 @@ public final class FrostedSettingsWindowController: NSWindowController, NSWindow
         case .stopped: sensorLabel.stringValue = text("角度检测已暂停", "Lid angle detection is paused")
         }
     }
+    public func windowShouldClose(_ sender: NSWindow) -> Bool {
+        // Permission prompts and System Settings may ask AppKit to close or
+        // reorder this window while they hand control back. Veto that direct
+        // request until the protected interaction has fully returned.
+        !permissionSettingsInteraction
+    }
     public func windowWillClose(_ notification: Notification) {
         guard !didNotifyClose else { return }
         cancelPendingOcclusionClose()
